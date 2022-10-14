@@ -3,7 +3,7 @@ import pickle
 from urllib.parse import urlparse 
 from urllib.parse import parse_qs
 
-from constants import filename, port
+from constants import filename, port, address
 
 import http.server
 
@@ -13,7 +13,7 @@ import ray
 class HTTPRQH(http.server.BaseHTTPRequestHandler):
     base = {}
 
-    ray.init()
+    ray.init(address='auto')
     
     def _set_headers(self):
         self.send_response(200)
@@ -35,10 +35,10 @@ class HTTPRQH(http.server.BaseHTTPRequestHandler):
             value = post_data[2:]
             print(value)
             if key in self.base:
-                self.base.update({key:value})
+                self.base[key].append(value)
                 save.remote(self.base)
             else:
-                self.base[key]=value
+                self.base[key]=[value]
                 save.remote(self.base)
         else: 
             self.send_response(404) 
@@ -53,8 +53,8 @@ class HTTPRQH(http.server.BaseHTTPRequestHandler):
             print(key)
             if key in self.base :
                 value = self.base.get(key)
-                self.wfile.write(bytes("<html><body>"+ value +"</body></html>",'utf-8'))
-                print("Existe la llave y este es el valor " + value)
+                self.wfile.write(bytes("<html><body>"+ value[len(value)-1] +"</body></html>",'utf-8'))
+                print("Existe la llave y este es el último valor " + value[len(value)-1])
             else:
                 self.wfile.write(bytes("<html><body><p>No existe la llave buscada</p></body></html>",'utf-8'))
                 print("No existe")
@@ -92,7 +92,7 @@ def load():
 
 def main():
     Handler = HTTPRQH
-    with http.server.HTTPServer(("", port), Handler) as httpd:
+    with http.server.HTTPServer((address, port), Handler) as httpd:
         print("serving at port", port)
         httpd.serve_forever()
 
